@@ -14,6 +14,7 @@ API: FastAPI приложение для инференса модели.
 Структура проекта
 (Описывает текущую структуру, отражая реализованные компоненты)
 
+```ascii
 credit-scoring-mlops/
 ├── api/                    # FastAPI application
 │   ├── app.py
@@ -49,6 +50,7 @@ credit-scoring-mlops/
 ├── Makefile              # Commands for common tasks
 ├── Dockerfile.api        # (If separate)
 └── README.md            # This file
+```
 
 Быстрый старт (для запущенного API)
 Убедитесь, что Docker установлен.
