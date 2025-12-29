@@ -50,49 +50,16 @@ def load_and_prepare_reference_data():
         y = df[TARGET].values
         X = df.drop(columns=[TARGET, ID_COL])
 
-        # --- Feature engineering class (из scripts/data_loader.py) ---
-        from sklearn.base import BaseEstimator, TransformerMixin
-        class FeatureEngineer(BaseEstimator, TransformerMixin):
-            def __init__(self):
-                self.age_bins = None
-                self.age_labels = None
-
-            def fit(self, X, y=None):
-                self.age_bins = [0, 25, 35, 50, 100]
-                self.age_labels = ['Young', 'Adult', 'Senior', 'Elder']
-                return self
-
-            def transform(self, X):
-                X = X.copy()
-                X['age_group'] = pd.cut(X['AGE'], bins=self.age_bins, labels=self.age_labels, right=False)
-                X['utilization'] = X['BILL_AMT1'] / (X['LIMIT_BAL'] + 1)
-                X['pay_ratio'] = X['PAY_AMT1'] / (X['BILL_AMT1'] + 1)
-                bill_cols = [f'BILL_AMT{i}' for i in range(1, 7)]
-                X['bill_trend'] = X[bill_cols].diff(axis=1).mean(axis=1, skipna=True).fillna(0)
-                return X
-
-            def fit_transform(self, X, y=None):
-                return self.fit(X, y).transform(X)
-        # --- Конец FeatureEngineer ---
-
-        # Применяем Feature Engineering
-        fe = FeatureEngineer()
-        X_transformed = fe.fit_transform(X)
-        print(f"Данные после Feature Engineering: {X_transformed.shape}")
-
         # --- ИСПРАВЛЕНИЕ ПУТИ К ПРЕПРОЦЕССОРУ ---
         # Теперь ищем preprocessing_pipeline.pkl
         possible_preprocessor_paths = [
+            Path("models/trained/preprocessing_pipeline.pkl"), # Путь из лога
             Path("models/preprocessing_pipeline.pkl"),
-            Path("models/trained/preprocessing_pipeline.pkl"), # Возможно, в подпапке
-            Path("../models/preprocessing_pipeline.pkl"),
             Path("../models/trained/preprocessing_pipeline.pkl"),
-            Path("../../models/preprocessing_pipeline.pkl"),
-            Path("../../models/trained/preprocessing_pipeline.pkl"),
+            Path("../models/preprocessing_pipeline.pkl"),
             # Пути из проекта HW_ML
             Path("../../../HW_ML/models/preprocessing_pipeline.pkl"),
-            Path("../../../HW_ML/scripts/model_training/preprocessing_pipeline.pkl"), # Если он был сохранен там
-            # Добавьте другие возможные пути, если нужно
+            Path("../../../HW_ML/scripts/model_training/preprocessing_pipeline.pkl"),
         ]
 
         preprocessor_path = None
@@ -107,19 +74,46 @@ def load_and_prepare_reference_data():
             return None
         # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
-        preprocessor = joblib.load(preprocessor_path)
+        # --- ИСПРАВЛЕНИЕ ЗАГРУЗКИ И ПРИМЕНЕНИЯ ПРЕПРОЦЕССОРА ---
+        # Загружаем словарь
+        pipeline_dict = joblib.load(preprocessor_path)
 
-        # Применяем препроцессор
-        X_processed = preprocessor.fit_transform(X_transformed) # fit_transform, т.к. это эталон
+        # Извлекаем компоненты
+        feature_creator = pipeline_dict['feature_creator']
+        preprocessor = pipeline_dict['preprocessor']
+        # num_cols = pipeline_dict['num_cols'] # Не обязательно использовать, если ColumnTransformer сам разберётся
+        # cat_cols = pipeline_dict['cat_cols']
+
+        print(f"Feature creator: {type(feature_creator)}")
+        print(f"Preprocessor: {type(preprocessor)}")
+
+        # Применяем Feature Engineering (transform, не fit_transform!)
+        X_transformed = feature_creator.transform(X)
+        print(f"Данные после Feature Engineering: {X_transformed.shape}")
+
+        # Применяем препроцессор (transform, не fit_transform!)
+        X_processed = preprocessor.transform(X_transformed)
         print(f"Данные после препроцессинга: {X_processed.shape}")
+        # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
         # Сохраняем эталонные признаки
         ref_data_path = Path("data/processed/reference_features.csv")
         ref_data_path.parent.mkdir(exist_ok=True)
 
         # Попробуем восстановить имена столбцов из препроцессора
-        feature_names = preprocessor.get_feature_names_out(X_transformed.columns)
-        ref_df = pd.DataFrame(X_processed, columns=feature_names)
+        # ColumnTransformer.get_feature_names_out() требует, чтобы на вход подавался DataFrame с правильными именами столбцов
+        # X_transformed - это результат feature_creator.transform(X), он должен иметь правильные имена
+        try:
+            feature_names = preprocessor.get_feature_names_out(X_transformed.columns)
+            ref_df = pd.DataFrame(X_processed, columns=feature_names)
+        except Exception as e:
+            print(f"Не удалось получить имена столбцов из препроцессора: {e}")
+            # Если не получилось, используем числовые индексы, но лучше бы получить имена
+            # ref_df = pd.DataFrame(X_processed)
+            # Попробуем получить имена столбцов из самого препроцессора, если get_feature_names_out не работает
+            # Это может быть сложно, поэтому сохраним как есть, но с предупреждением
+            print("Предупреждение: имена столбцов не восстановлены, используем индексы. Это может повлиять на Evidently.")
+            ref_df = pd.DataFrame(X_processed)
 
         ref_df.to_csv(ref_data_path, index=False)
         print(f"Эталонные признаки сохранены: {ref_data_path}")
