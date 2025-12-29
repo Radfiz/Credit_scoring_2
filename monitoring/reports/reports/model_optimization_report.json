@@ -1,0 +1,84 @@
+{
+  "optimization_date": "2025-12-28T13:35:47.878492",
+  "models": {
+    "PyTorch": {
+      "size_mb": 0.22,
+      "path": "models/trained/credit_scoring_nn.pth"
+    },
+    "ONNX Original": {
+      "size_mb": 0.22,
+      "path": "models/onnx/credit_scoring_model.onnx"
+    },
+    "ONNX Quantized": {
+      "size_mb": 0.07,
+      "path": "models/onnx/credit_scoring_model_quantized.onnx"
+    }
+  },
+  "metrics": {
+    "benchmark": [
+      {
+        "batch_size": 1,
+        "pytorch_time": 0.0278747081756591,
+        "onnx_time": 0.0039906501770019,
+        "speedup": 6.985004182100609
+      },
+      {
+        "batch_size": 8,
+        "pytorch_time": 0.0392189025878906,
+        "onnx_time": 0.0116264820098876,
+        "speedup": 3.373239003383574
+      },
+      {
+        "batch_size": 32,
+        "pytorch_time": 0.0605430603027343,
+        "onnx_time": 0.0381042957305908,
+        "speedup": 1.588877556766633
+      },
+      {
+        "batch_size": 128,
+        "pytorch_time": 0.0685610771179199,
+        "onnx_time": 0.1450154781341552,
+        "speedup": 0.4727845468639794
+      }
+    ],
+    "quantization": [
+      {
+        "batch_size": 1,
+        "original_time": 0.0049867630004882,
+        "quantized_time": 0.0054917335510253,
+        "speedup": 0.9080489710862204
+      },
+      {
+        "batch_size": 4,
+        "original_time": 0.0114908218383789,
+        "quantized_time": 0.01047945022583,
+        "speedup": 1.0965099877144286
+      },
+      {
+        "batch_size": 16,
+        "original_time": 0.0215592384338378,
+        "quantized_time": 0.0237627029418945,
+        "speedup": 0.9072721435164748
+      },
+      {
+        "batch_size": 64,
+        "original_time": 0.0741543769836425,
+        "quantized_time": 0.0824947357177734,
+        "speedup": 0.8988982913689857
+      },
+      {
+        "batch_size": 256,
+        "original_time": 0.2721879482269287,
+        "quantized_time": 0.2649927139282226,
+        "speedup": 1.027152574091735
+      }
+    ]
+  },
+  "recommendations": [
+    {
+      "type": "caution",
+      "message": "\u0418\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u044c \u043e\u0440\u0438\u0433\u0438\u043d\u0430\u043b\u044c\u043d\u0443\u044e ONNX \u043c\u043e\u0434\u0435\u043b\u044c",
+      "reason": "\u041a\u0432\u0430\u043d\u0442\u0438\u0437\u0430\u0446\u0438\u044f \u043d\u0435 \u0434\u0430\u0435\u0442 \u0437\u043d\u0430\u0447\u0438\u0442\u0435\u043b\u044c\u043d\u043e\u0433\u043e \u0443\u0441\u043a\u043e\u0440\u0435\u043d\u0438\u044f \u0434\u043b\u044f \u0434\u0430\u043d\u043d\u043e\u0439 \u0430\u0440\u0445\u0438\u0442\u0435\u043a\u0442\u0443\u0440\u044b"
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+# deployment/docker/Dockerfile.api
+
+# --- Стадия сборки зависимостей ---
+FROM python:3.11-slim as builder
+
+WORKDIR /app
+
+# Установка системных зависимостей, необходимых для компиляции некоторых пакетов
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Копируем файлы зависимостей
+COPY requirements.txt requirements-api.txt ./
+
+# Устанавливаем зависимости в /usr/local (без --user)
+RUN pip install --no-cache-dir -r requirements-api.txt
+
+# --- Стадия финального образа ---
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Установка системных зависимостей, необходимых для работы приложения
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Копируем установленные зависимости из стадии builder
+COPY --from=builder /usr/local /usr/local
+
+# Добавляем /usr/local/bin в PATH
+ENV PATH=/usr/local/bin:$PATH
+
+# Создаем непривилегированного пользователя
+RUN useradd --create-home --shell /bin/bash appuser
+
+# Копируем код API
+COPY api ./api
+
+# Копируем конфигурацию
+COPY config ./config
+
+# Копируем эталонные данные для Evidently
+# Убедитесь, что файл существует по этому пути на хосте
+RUN mkdir -p data/processed
+COPY data/processed/reference_features.csv data/processed/reference_features.csv
+COPY data/processed/reference_target.csv data/processed/reference_target.csv 
+
+# Копируем модель и связанные файлы (включая .data)
+RUN mkdir -p models/trained/onnx
+COPY models/trained/onnx/ models/trained/onnx/
+
+# Устанавливаем владельца
+RUN chown -R appuser:appuser /app
+
+# Переключаемся на непривилегированного пользователя
+USER appuser
+
+# Устанавливаем переменные окружения
+ENV PYTHONPATH=/app
+ENV MODEL_PATH=models/trained/onnx/credit_scoring_model.onnx
+ENV REFERENCE_DATA_PATH=data/processed/reference_features.csv
+ENV API_HOST=0.0.0.0
+ENV API_PORT=8000
+
+# Проверка состояния (healthcheck)
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:${API_PORT}/health || exit 1
+
+# Открываем порт
+EXPOSE ${API_PORT}
+
+# Запускаем приложение с использованием shell-формата CMD
+CMD uvicorn api.app:app --host ${API_HOST} --port ${API_PORT}
